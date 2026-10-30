@@ -28,7 +28,7 @@ Only you start it, by clicking. It works on your own characters only: the chat h
 - Other people's characters, other chats, other branches, swiped-away replies.
 - Message dates and ids: the page does not show them. The chat id is saved only if you opened the chat from **History** (its address then has `?hist=`).
 - Formatting marks: `*italics*` and `**bold**` are saved as the plain text you see.
-- Pictures or voice messages inside the chat (the extension stops with an error instead of skipping them), voice settings, hidden settings, the character's picture from the site.
+- Pictures, audio or video inside chat messages: the extension stops with an error instead of saving such a message without them. Also voice settings, hidden settings and the character's picture from the site.
 - Anything outside the page: the extension has no access to your account, cookies or the site's storage, and sends nothing anywhere.
 
 ## Privacy and permissions
@@ -54,10 +54,10 @@ There is no build step: the `extension` folder is exactly what Chrome runs. Afte
 
 ## Limitations
 
-- **The site's page layout.** The reader relies on how the chat page is built today. When the layout changes, it stops with "Can't read a message" or "Can't tell who wrote a message" instead of guessing, and the extension needs an update. The reader version is written into every file (`producer.reader_version`).
+- **The site's page layout.** The reader relies on how the chat page is built today: a list with the newest message first, the author of each message shown by the row, one text block per message. When the layout changes, it stops with "Can't read a message", "Can't tell who wrote a message" or "Can't tell the order of messages" instead of guessing, and the extension needs an update. The reader version is written into every file (`producer.reader_version`).
 - **Start of the chat.** The page has no explicit "start" mark for long chats. The extension stops when the oldest message equals one of the character's greetings (`{{user}}` and `{{char}}` are accounted for), when the site shows its start-of-chat card, or when no older messages arrive twice in a row. A chat that starts with an AI-written greeting will not match; you confirm the start yourself.
 - **Keep the tab open** while it loads. A background tab is throttled by the browser; the extension waits instead of giving up.
-- **Size.** One file holds up to 5,000 messages and 5 MB; a single message up to 32 KB. If a chat is longer, the newest messages that fit are saved, the file is marked partial and the preview says how many older messages were left out. Text is never cut.
+- **Size.** One file holds up to 5,000 messages and 5 MB; a single message up to 32 KB. If a chat is longer, loading stops once older messages can no longer fit, the newest messages that fit are saved, the file is marked partial and the preview says how many older messages were left out. Text is never cut, and a history longer than one file is never read in full.
 - **Ownership** is checked by what the page shows and confirmed by you. It is not a cryptographic proof.
 - Not tested yet: chats of thousands of messages, Persona names, edited messages, mobile layouts.
 

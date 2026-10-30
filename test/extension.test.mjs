@@ -197,6 +197,63 @@ test("own picture from a file the user picks, in a tab", async () => {
   await page.close();
 });
 
+const pngFile = () => {
+  const png = join(mkdtempSync(join(tmpdir(), "duetta-img-")), "me.png");
+  writeFileSync(png, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64"));
+  return png;
+};
+// Card and short chat captured; the review is open in a popup window.
+async function reviewShortChat() {
+  const page = await site({ chat: "chat-short" });
+  await addCard(page);
+  await page.goto(CHAT_URL);
+  const popup = await clickIcon(page);
+  await view(popup, "chat");
+  await popup.click('[data-a="save-chat"]');
+  await view(popup, "review");
+  return popup;
+}
+const reviewTab = async () => {
+  const tab = await browser.context.newPage();
+  await tab.goto(`chrome-extension://${ext.id}/popup.html?tab`);
+  await view(tab, "review");
+  return tab;
+};
+
+test("the user's start/end choice survives a new picture and another window", async () => {
+  const popup = await reviewShortChat();
+  assert.equal(await popup.isChecked('[data-c="end"]'), true, "suggested: the page shows the newest messages");
+  await popup.uncheck('[data-c="end"]'); // the user says the last message is not the latest one
+  // The picture is chosen in a tab: the choice made in the popup carries over.
+  const tab = await reviewTab();
+  assert.equal(await tab.isChecked('[data-c="end"]'), false);
+  await tab.setInputFiles('[data-f="photo-input"]', pngFile());
+  await tab.waitForSelector('[data-f="r-photo"]:not([hidden])');
+  assert.equal(await tab.isChecked('[data-c="end"]'), false, "adding a picture keeps the choice");
+  await tab.check('[data-c="own"]');
+  await tab.click('[data-a="photo-remove"]');
+  await tab.waitForSelector('[data-f="r-photo"]', { state: "hidden" });
+  assert.equal(await tab.isChecked('[data-c="end"]'), false, "removing it too");
+  assert.equal(await text(tab, "r-status"), "Partial chat");
+  const download = tab.waitForEvent("download");
+  await tab.click('[data-a="save-file"]');
+  const file = JSON.parse(readFileSync(await (await download).path(), "utf8"));
+  assert.deepEqual([file.chat.coverage.user_confirmed_end, file.chat.coverage.status], [false, "partial"]);
+});
+
+test("after saving, the page keeps no chat text", async () => {
+  await reviewShortChat();
+  const tab = await reviewTab(); // the tab where a picture is chosen stays open after saving
+  await tab.check('[data-c="own"]');
+  const download = tab.waitForEvent("download");
+  await tab.click('[data-a="save-file"]');
+  await download;
+  await view(tab, "saved");
+  assert.equal(await tab.locator('[data-view="review"]').count(), 0, "the review is gone from the page");
+  assert.ok(!(await tab.evaluate(() => document.body.textContent)).includes("Привет! Я Тим"), "no chat text left in the page");
+  assert.deepEqual(await session(), {});
+});
+
 test("without the user's click the extension cannot read the tab", async () => {
   const page = await site();
   await page.goto(CHAT_URL);

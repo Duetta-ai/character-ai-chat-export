@@ -23,7 +23,9 @@ export function buildExport({ card, capture, photo = null, confirmed, matchesGre
   const make = (keep) => {
     const leftOut = (capture.leftOut || 0) + all.length - keep;
     const messages = all.slice(all.length - keep);
-    const match = matchesGreeting(messages[0].text, card.greetings, card.name);
+    // The greeting is the character's line: the user's copy of it is not the start of the chat.
+    const hint = matchesGreeting(messages[0].text, card.greetings, card.name);
+    const match = hint && messages[0].role !== "assistant" ? false : hint;
     const start = !!confirmed.start && !leftOut;
     const end = !!confirmed.end;
     const fieldsMissing = [card.tagline, card.description, card.definition].includes(null) || !card.greetings.length;

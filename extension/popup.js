@@ -26,7 +26,9 @@ const ERRORS = {
   GENERATING: ["Wait for the reply", "The character is still writing. Try again when the reply is complete."],
   UNKNOWN_ROLE: ["Can't tell who wrote a message", "The extension stopped instead of guessing. Nothing was saved. The site may have changed; the extension needs an update."],
   UNKNOWN_MESSAGE: ["Can't read a message", "The extension stopped instead of guessing. Nothing was saved. The site may have changed; the extension needs an update."],
+  UNKNOWN_ORDER: ["Can't tell the order of messages", "The extension stopped instead of guessing. Nothing was saved. The site may have changed; the extension needs an update."],
   EMPTY_MESSAGE: ["A message has no text", "Pictures and voice messages can't be saved yet, so nothing was saved."],
+  UNSUPPORTED_CONTENT: ["A message has a picture or media", "Pictures and voice messages can't be saved yet, so nothing was saved."],
   MESSAGE_TOO_LONG: ["A message is too long", "Messages over 32 KB can't be saved by this version. Nothing was saved."],
   MESSAGES_REMOVED: ["The chat changed while loading", "The page removed messages while the extension was scrolling. Nothing was saved. Try again and keep this tab open."],
   PAGE_CHANGED: ["The chat changed while loading", "Another page was opened while the extension was scrolling. Nothing was saved. Try again and keep this tab open."],
@@ -77,7 +79,7 @@ async function main() {
   const p = await call("poll");
   if (p.phase === "scrolling") return progress();
   if (p.phase === "done") return finished(p.result);
-  if (at.page === "edit") return cardView(saved);
+  if (at.page === "edit") return cardView(saved.capture?.characterId);
   if (saved.capture) return review();
   const r = await call("inspect");
   if (!r.ok) return showError(r.code, r.detail);
@@ -132,21 +134,22 @@ async function finished(r) {
     readerVersion: r.readerVersion,
   };
   try {
-    await session.set({ capture });
+    await session.set({ capture, choices: {} });
   } catch {
     return showError("STORAGE");
   }
   review();
 }
 
-function cardView(saved) {
+// capturedFor: the character of a chat already saved in the session, if any.
+function cardView(capturedFor) {
   show("card");
   on("add-card", async () => {
     const r = await call("readCard");
     if (!r.ok) return showError(r.code, r.detail);
-    if (saved.capture && saved.capture.characterId !== r.card.characterId) return showError("CARD_MISMATCH");
+    if (capturedFor && capturedFor !== r.card.characterId) return showError("CARD_MISMATCH");
     await session.set({ card: r.card });
-    if (saved.capture) return review();
+    if (capturedFor) return review();
     setText("card-name", r.card.name);
     field("card-done").hidden = false;
   });
@@ -158,25 +161,32 @@ const STOPPED = {
   quiet_timeout: "The site sent no older messages",
   user_stopped: "You stopped loading",
   message_limit: "Stopped at 5,000 messages",
+  size_limit: "Stopped at the 5 MB file limit",
   time_limit: "Stopped after 10 minutes",
 };
 const who = (m) => (m.role === "user" ? "You" : "Character");
 
 async function review() {
-  const { card: savedCard, capture, photo } = await session.get(["card", "capture", "photo"]);
+  const { card: savedCard, capture, photo, choices = {} } = await session.get(["card", "capture", "photo", "choices"]);
   if (!capture) return show("unsupported");
   const card = savedCard?.characterId === capture.characterId ? savedCard : null;
   const own = check("own");
   const start = check("start");
   const end = check("end");
-  end.checked = true; // the page always shows the newest messages
   const options = (confirmed) => ({ card, capture, photo, confirmed, matchesGreeting: R.matchesGreeting });
   const draft = (confirmed) => buildExport({ ...options(confirmed), exportId: "", now: new Date() });
+  // Suggestions until the user ticks or unticks a box; then their choice is kept in the session,
+  // so a new picture or opening the review again does not change it.
+  let suggestStart = false;
+  let leftOut = capture.leftOut;
   if (card) {
-    const { file, leftOut } = draft({});
-    start.checked = !leftOut && (capture.startCard || file.chat.coverage.first_message_matches_greeting === true);
-    start.disabled = leftOut > 0;
+    const d = draft({});
+    leftOut = d.leftOut;
+    suggestStart = capture.startCard || d.file.chat.coverage.first_message_matches_greeting === true;
   }
+  start.checked = !leftOut && (choices.start ?? suggestStart);
+  start.disabled = leftOut > 0;
+  end.checked = choices.end ?? true; // the page always shows the newest messages
 
   const render = () => {
     const built = card && draft({ start: start.checked, end: end.checked });
@@ -212,7 +222,13 @@ async function review() {
     field("r-edit-link").href = editUrl(capture.characterId);
     action("save-file")[0].disabled = !card || !own.checked;
   };
-  for (const box of [own, start, end]) box.onchange = render;
+  own.onchange = render;
+  for (const box of [start, end])
+    box.onchange = () => {
+      choices[box.dataset.c] = box.checked;
+      session.set({ choices });
+      render();
+    };
 
   const tabMode = params.has("tab");
   field("photo-link").hidden = tabMode;
@@ -242,17 +258,23 @@ async function review() {
     } catch (e) {
       return showError(e.message);
     }
-    const url = URL.createObjectURL(new Blob([serialize(file)], { type: "application/json" }));
-    const link = Object.assign(document.createElement("a"), { href: url, download: fileName(card.name, now) });
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    session.clear();
-    setText("s-file", link.download);
-    show("saved");
+    saveAndForget(serialize(file), fileName(card.name, now));
   });
 
   render();
   show("review");
+}
+
+// Hands the file to the browser, then forgets the chat: the session is cleared and the review,
+// with its texts, picture and handlers (and so everything they hold), leaves the page.
+function saveAndForget(json, name) {
+  const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+  Object.assign(document.createElement("a"), { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000); // the download reads the Blob
+  session.clear();
+  document.querySelector('[data-view="review"]').remove();
+  setText("s-file", name);
+  show("saved");
 }
 
 async function readPhoto(file) {

@@ -10,6 +10,7 @@
   const VERSION = "cai-dom-1";
   const LIMITS = { messages: 5000, messageBytes: 32 * 1024, textBytes: 5 * 1024 * 1024 };
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const MEDIA = "img, picture, video, audio, iframe, object, embed, canvas";
   const utf8 = (s) => new TextEncoder().encode(s).length;
 
   class ReadError extends Error {
@@ -92,10 +93,18 @@
     return { creator, account, editLink };
   }
 
+  // The list is a column-reverse flexbox with the newest message first in the DOM. In any
+  // other layout the DOM order can't be trusted as the chat order.
+  function checkOrder(root) {
+    const style = getComputedStyle(root);
+    if (!/flex$/.test(style.display) || style.flexDirection !== "column-reverse") fail("UNKNOWN_ORDER");
+  }
+
   function openChat() {
     const at = where();
     if (at?.page !== "chat") fail("UNSUPPORTED_PAGE");
     const root = document.querySelector("#chat-messages") || fail("NO_CHAT");
+    checkOrder(root);
     const own = owner(at.characterId);
     if (!own.creator || !own.account) fail("OWNER_UNKNOWN", own);
     if (own.creator !== own.account || !own.editLink) fail("NOT_OWN", own);
@@ -123,31 +132,45 @@
     if (mine === badge) fail("UNKNOWN_ROLE", { index });
     const prose = node.querySelectorAll(".prose");
     if (prose.length !== 1) fail("UNKNOWN_MESSAGE", { index, reason: "text_block" });
+    // A picture, audio or video in the message can't be saved: refuse instead of dropping it.
+    const bubble = prose[0].closest("[data-testid]");
+    if ((bubble && node.contains(bubble) ? bubble : prose[0]).querySelector(MEDIA)) fail("UNSUPPORTED_CONTENT", { index });
     const text = prose[0].innerText; // innerText keeps line breaks and empty lines
     if (!text.trim()) fail("EMPTY_MESSAGE", { index });
     if (utf8(text) > LIMITS.messageBytes) fail("MESSAGE_TOO_LONG", { index });
     return { role: mine ? "user" : "assistant", text };
   }
 
-  // One pass over what is rendered, oldest first. Keeps the newest messages that fit the
-  // limits and reports how many older ones were left out; text is never cut.
+  // One pass over what is rendered, newest first, that stops at the first older message that
+  // does not fit the limits: a huge history is never read in full. Reports how many older
+  // messages were left out and which limit was hit; text is never cut.
   function readAll(root) {
-    const groups = [...root.children].reverse();
+    checkOrder(root);
+    const total = count(root);
     const messages = [];
+    let bytes = 0;
+    let limit = null;
     let startCard = false;
-    groups.forEach((g, i) => {
-      if (!isStartCard(g)) return messages.push(readMessage(g, messages.length));
-      if (i !== 0) fail("UNKNOWN_MESSAGE", { index: messages.length, reason: "start_card" });
-      startCard = true;
-    });
-    if (!messages.length) fail("NO_MESSAGES");
-    let keep = 0;
-    for (let i = messages.length - 1, bytes = 0; i >= 0 && keep < LIMITS.messages; i--, keep++) {
-      bytes += utf8(messages[i].text);
-      if (bytes > LIMITS.textBytes) break;
+    for (let g = root.firstElementChild; g; g = g.nextElementSibling) {
+      if (isStartCard(g)) {
+        if (g.nextElementSibling) fail("UNKNOWN_MESSAGE", { index: total - 1 - messages.length, reason: "start_card" });
+        startCard = true;
+        break;
+      }
+      if (messages.length === LIMITS.messages) {
+        limit = "message_limit";
+        break;
+      }
+      const m = readMessage(g, total - 1 - messages.length);
+      if (bytes + utf8(m.text) > LIMITS.textBytes) {
+        limit = "size_limit";
+        break;
+      }
+      bytes += utf8(m.text);
+      messages.push(m);
     }
-    const leftOut = messages.length - keep;
-    return { messages: messages.slice(leftOut), leftOut, startCard: startCard && !leftOut };
+    if (!messages.length) fail("NO_MESSAGES");
+    return { messages: messages.reverse(), leftOut: total - messages.length, startCard, bytes, limit };
   }
 
   const state = { phase: "idle", count: 0, startedAt: 0, stop: false, result: null };
@@ -156,8 +179,19 @@
   // Scroll to the first message; the page loads older messages by itself (about 50 per
   // request) while the list sits at the top. Stops at the greeting or the start card,
   // when nothing new arrives after a second push, on the user's Stop, or at the limits.
-  async function scroll(root, o) {
+  // `pre` is the read made before scrolling; if it already hit a limit, nothing is loaded.
+  async function scroll(root, o, pre) {
     const href = location.href;
+    let removed = 0;
+    const watch = new MutationObserver((records) => records.forEach((r) => (removed += r.removedNodes.length)));
+    watch.observe(root, { childList: true });
+    // The run is void if another page was opened or the page removed messages, including
+    // during the last wait before the final read.
+    const guard = () => {
+      watch.takeRecords().forEach((r) => (removed += r.removedNodes.length));
+      if (!root.isConnected || location.href !== href) fail("PAGE_CHANGED");
+      if (removed) fail("MESSAGES_REMOVED");
+    };
     const oldestIsGreeting = () => {
       let g = root.lastElementChild;
       if (isStartCard(g)) g = g.previousElementSibling;
@@ -169,23 +203,22 @@
         return false;
       }
     };
-    let removed = 0;
-    const watch = new MutationObserver((records) => records.forEach((r) => (removed += r.removedNodes.length)));
-    watch.observe(root, { childList: true });
     // column-reverse: scrollTop 0 is the newest message, the top is -(scrollHeight - clientHeight)
     const toTop = () => (root.scrollTop = -root.scrollHeight);
-    let stoppedBy = null;
+    let stoppedBy = pre.limit;
     let seen = count(root);
+    let bytes = pre.bytes; // text of the loaded messages, to stop loading what can't fit a file
+    let measured = root.childElementCount;
     let quietSince = Date.now();
     let pushed = false;
     try {
-      for (let first = true; ; first = false) {
-        if (!root.isConnected || location.href !== href) fail("PAGE_CHANGED");
-        if (removed) fail("MESSAGES_REMOVED");
+      for (let first = true; !stoppedBy; first = false) {
+        guard();
         if (state.stop) stoppedBy = "user_stopped";
         else if (isStartCard(root.lastElementChild)) stoppedBy = "intro_card";
         else if (oldestIsGreeting()) stoppedBy = "greeting";
         else if (seen >= LIMITS.messages) stoppedBy = "message_limit";
+        else if (bytes > LIMITS.textBytes) stoppedBy = "size_limit";
         else if (Date.now() - state.startedAt > o.maxMs) stoppedBy = "time_limit";
         if (stoppedBy) break;
         if (first) toTop();
@@ -193,6 +226,12 @@
         const n = count(root);
         state.count = n;
         if (n !== seen) {
+          // Older messages are appended at the end of the list.
+          for (let i = measured; i < root.childElementCount; i++) {
+            const g = root.children[i];
+            if (!isStartCard(g)) bytes += utf8(readMessage(g, root.childElementCount - 1 - i).text);
+          }
+          measured = root.childElementCount;
           seen = n;
           quietSince = Date.now();
           pushed = false;
@@ -211,6 +250,7 @@
           toTop();
         }
       }
+      guard();
     } finally {
       watch.disconnect();
     }
@@ -230,10 +270,10 @@
   const start = safe((opts = {}) => {
     if (state.phase === "scrolling") fail("BUSY");
     const { at, root, name } = openChat();
-    readAll(root); // unknown layout or a reply still being written: stop before scrolling
+    const pre = readAll(root); // unknown layout or a reply still being written: stop before scrolling
     const o = { greetings: [], name: name || "", quietMs: 3000, maxMs: 10 * 60 * 1000, ...opts };
     Object.assign(state, { phase: "scrolling", count: count(root), startedAt: Date.now(), stop: false, result: null });
-    scroll(root, o).then(
+    scroll(root, o, pre).then(
       (r) => (state.result = { ok: true, ...at, name, ...r }),
       (e) => (state.result = asError(e)),
     ).finally(() => (state.phase = "done"));

@@ -158,6 +158,8 @@ test("unknown page layout is an explicit error, never a guess", async () => {
     ["reply still being written", (l) => l.querySelector(".swiper-slide-active").append(Object.assign(document.createElement("div"), { className: "ticontainer" })), "GENERATING"],
     ["empty message", (l) => (l.querySelector(".flex-row-reverse").closest("#chat-messages > *").querySelector(".prose").textContent = " "), "EMPTY_MESSAGE"],
     ["start card in the middle", (l) => l.insertBefore(l.lastElementChild, l.children[3]), "UNKNOWN_MESSAGE"],
+    ["picture next to the text", (l) => l.querySelector(".swiper-slide-active .prose").insertAdjacentHTML("beforeend", '<img src="data:," width="40" height="40">'), "UNSUPPORTED_CONTENT"],
+    ["audio in a user message", (l) => l.querySelector(".flex-row-reverse").closest("#chat-messages > *").querySelector(".prose").append(document.createElement("audio")), "UNSUPPORTED_CONTENT"],
     ["no message list", (l) => l.remove(), "NO_CHAT"],
   ];
   for (const [name, change, code] of cases) {
@@ -167,6 +169,38 @@ test("unknown page layout is an explicit error, never a guess", async () => {
     assert.deepEqual([r.ok, r.code], [false, code], name);
     await page.close();
   }
+});
+
+test("a list in another order is an error, not a reversed chat", async () => {
+  await open(chatPage({ chat: "chat-long-open" }));
+  // Same messages, shown oldest first by a plain column with the DOM in chat order.
+  await page.evaluate(() => {
+    const l = document.querySelector("#chat-messages");
+    l.style.flexDirection = "column";
+    l.replaceChildren(...[...l.children].reverse());
+  });
+  assert.equal((await R("inspect")).code, "UNKNOWN_ORDER");
+  assert.equal((await R("start", { greetings: [] })).code, "UNKNOWN_ORDER");
+  await page.close();
+});
+
+test("another page opened during the last wait: error, not the old list", async () => {
+  await open(chatPage({ chat: "chat-long-open" }));
+  // The reader's second push to the top starts its last wait; leave the chat right then.
+  await page.evaluate(() => {
+    const l = document.querySelector("#chat-messages");
+    let tops = 0;
+    l.addEventListener("scroll", () => {
+      if (l.scrollTop <= -(l.scrollHeight - l.clientHeight) + 2 && ++tops === 2)
+        setTimeout(() => {
+          history.pushState(null, "", "/profile/" + "someone");
+          l.remove();
+        }, 100);
+    });
+  });
+  const r = await capture({ greetings: [], quietMs: 0 });
+  assert.deepEqual([r.ok, r.code], [false, "PAGE_CHANGED"]);
+  await page.close();
 });
 
 test("only your own character: creator must match the account and the Edit link must exist", async () => {
@@ -225,6 +259,38 @@ test("limits: the newest 5,000 messages are kept and the rest is reported; long 
   await page.evaluate(() => (document.querySelector("#chat-messages .flex-row-reverse").closest("#chat-messages > *").querySelector(".prose").textContent = "я".repeat(17000)));
   const long = await R("start", { greetings: [GREETING] });
   assert.deepEqual([long.ok, long.code, long.detail.index], [false, "MESSAGE_TOO_LONG", 9]);
+  await page.close();
+});
+
+// Messages of 20,000 characters: 262 of them fill the 5 MiB of text one file may hold.
+const big = (n) => {
+  const row = (i) => (i % 2 ? `<div class="flex-row-reverse"></div>` : `<div class="cai-badge">c.ai</div>`) + `<div class="prose"><p>${i} ${"x".repeat(20000)}</p></div>`;
+  return `<div id="chat-messages">${Array.from({ length: n }, (_, i) => `<div>${row(i)}</div>`).reverse().join("")}</div>`;
+};
+
+test("a history bigger than one file is not read in full", async () => {
+  await open(chatPage({ messages: big(400) }));
+  await page.evaluate(() => {
+    const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "innerText");
+    window.reads = 0;
+    Object.defineProperty(HTMLElement.prototype, "innerText", { configurable: true, get() { window.reads++; return d.get.call(this); } });
+  });
+  const r = await capture({ greetings: [] });
+  assert.deepEqual([r.stoppedBy, r.messages.length, r.leftOut], ["size_limit", 262, 138]);
+  assert.equal(r.messages.at(-1).text.slice(0, 4), "399 ");
+  const reads = await page.evaluate(() => window.reads);
+  assert.ok(reads <= 2 * (262 + 1), `${reads} reads: only the newest messages that fit, before and after scrolling`);
+  assert.equal(requests.filter((q) => q.path.startsWith("/__fixture/turns")).length, 0, "nothing older is loaded");
+  await page.close();
+});
+
+test("loading older messages stops once they can't fit one file", async () => {
+  await open(chatPage({ messages: big(350), hide: 300, batch: 49, delay: 50, chain: false }));
+  const r = await capture({ greetings: [] });
+  assert.equal(r.stoppedBy, "size_limit");
+  assert.equal(r.messages.length, 262);
+  assert.equal(r.leftOut, 295 - 262);
+  assert.equal(requests.filter((q) => q.path.startsWith("/__fixture/turns")).length, 5, "5 of the 7 batches");
   await page.close();
 });
 

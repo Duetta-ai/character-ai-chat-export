@@ -68,6 +68,8 @@ test("the schema refuses what v1 does not allow", () => {
     "too many messages": (f) => (f.chat.messages = Array.from({ length: 5001 }, () => f.chat.messages[0])),
     "unknown warning": (f) => f.warnings.push("SOMETHING"),
     "made-up chat id": (f) => (f.chat.source_chat_id = "chat-123"),
+    "broken base64": (f) => (f.character.avatar = { mime_type: "image/png", data_base64: "AAA==", source: "user_selected_file" }),
+    "base64 of a wrong length": (f) => (f.character.avatar = { mime_type: "image/png", data_base64: "AAAAA", source: "user_selected_file" }),
   };
   for (const [name, change] of Object.entries(cases)) {
     const file = structuredClone(base);
@@ -96,6 +98,10 @@ test("built file: complete only when the user confirmed both the start and the e
   const noStart = build({ capture: capture(chat.slice(1)), confirmed: { start: false, end: true } }).file;
   assert.equal(noStart.chat.coverage.first_message_matches_greeting, false);
   assert.ok(noStart.warnings.includes("FIRST_MESSAGE_NOT_GREETING") && noStart.warnings.includes("CHAT_START_NOT_CONFIRMED"));
+  // The user's copy of the greeting is not the character's greeting.
+  const userCopy = build({ capture: capture([{ role: "user", text: "Привет, Мира! Сегодня ясное небо." }, ...chat.slice(1)]), confirmed: { start: false, end: true } }).file;
+  assert.equal(userCopy.chat.coverage.first_message_matches_greeting, false);
+  assert.ok(userCopy.warnings.includes("FIRST_MESSAGE_NOT_GREETING"));
   const noGreeting = build({ card: { ...card, greetings: [] } }).file;
   assert.equal(noGreeting.chat.coverage.first_message_matches_greeting, null);
   assert.ok(noGreeting.warnings.includes("CHARACTER_FIELDS_MISSING"));
