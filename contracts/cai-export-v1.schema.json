@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:duetta:character-ai-export:1",
+  "title": "Duetta chat export, format v1",
+  "description": "One character the user created and one chat with it, read from pages the user opened. Byte limits that JSON Schema cannot express (whole file 5 MiB, 32 KiB of UTF-8 per message, 2 MiB of decoded image, 16 megapixels) and index order are checked by producers and importers. See README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "schema_version", "export_id", "exported_at", "producer", "source", "ownership", "character", "chat", "warnings"],
+  "properties": {
+    "format": { "const": "duetta.character-ai-export" },
+    "schema_version": { "const": 1 },
+    "export_id": { "type": "string", "format": "uuid", "description": "Random id of this export. Not an authorization." },
+    "exported_at": { "type": "string", "format": "date-time" },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "reader_version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "reader_version": { "type": "string", "minLength": 1, "maxLength": 50, "description": "Version of the page reader; changes when the supported page layout changes." }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["service", "method"],
+      "properties": {
+        "service": { "const": "character.ai" },
+        "method": { "const": "user_confirmed_dom", "description": "Read from the rendered page after the user's click and confirmed by the user." }
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["character_created_by_user", "chat_owned_by_user", "ui_evidence"],
+      "description": "What the user confirmed and which page signals were present. Not a cryptographic proof.",
+      "properties": {
+        "character_created_by_user": { "const": true },
+        "chat_owned_by_user": { "const": true },
+        "ui_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["creator_matches_account", "edit_link", "edit_form"] }
+        }
+      }
+    },
+    "character": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_character_id", "name", "tagline", "description", "greeting", "alternate_greetings", "definition", "avatar"],
+      "description": "Fields as the character's edit form showed them. null means the form did not show the field.",
+      "properties": {
+        "source_character_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{8,128}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "tagline": { "type": ["string", "null"], "maxLength": 1000 },
+        "description": { "type": ["string", "null"], "maxLength": 10000 },
+        "greeting": { "type": ["string", "null"], "maxLength": 32768 },
+        "alternate_greetings": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 32768 } },
+        "definition": { "type": ["string", "null"], "maxLength": 65536 },
+        "avatar": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/avatar" }] }
+      }
+    },
+    "chat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_chat_id", "coverage", "messages"],
+      "properties": {
+        "source_chat_id": { "type": ["string", "null"], "format": "uuid", "description": "Known only when the chat was opened from History; otherwise null." },
+        "coverage": { "$ref": "#/$defs/coverage" },
+        "messages": { "type": "array", "minItems": 1, "maxItems": 5000, "items": { "$ref": "#/$defs/message" } }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CHAT_START_NOT_CONFIRMED",
+          "CHAT_END_NOT_CONFIRMED",
+          "FIRST_MESSAGE_NOT_GREETING",
+          "HISTORY_LIMIT_REACHED",
+          "SOURCE_CHAT_ID_UNAVAILABLE",
+          "SOURCE_MESSAGE_IDS_UNAVAILABLE",
+          "SOURCE_TIMESTAMPS_UNAVAILABLE",
+          "TEXT_AS_DISPLAYED",
+          "AVATAR_NOT_INCLUDED",
+          "CHARACTER_FIELDS_MISSING"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "avatar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mime_type", "data_base64", "source"],
+      "description": "Only an image file the user picked on their computer. Image URLs are not supported.",
+      "properties": {
+        "mime_type": { "enum": ["image/png", "image/jpeg", "image/webp"] },
+        "data_base64": { "type": "string", "minLength": 4, "maxLength": 2796204, "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+        "source": { "const": "user_selected_file" }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "captured_count", "total_count", "stopped_by", "first_message_matches_greeting", "user_confirmed_start", "user_confirmed_end"],
+      "properties": {
+        "status": { "enum": ["complete", "partial"], "description": "complete only when the user confirmed both the start and the end." },
+        "captured_count": { "type": "integer", "minimum": 1, "maximum": 5000, "description": "Equals the number of messages." },
+        "total_count": { "type": ["integer", "null"], "minimum": 1, "description": "The page does not show a total; null." },
+        "stopped_by": {
+          "enum": ["greeting", "intro_card", "quiet_timeout", "user_stopped", "message_limit", "time_limit"],
+          "description": "Why loading older messages stopped: the oldest message is the greeting; the page showed its start-of-chat card; nothing new arrived; the user pressed Stop; the message limit; the time limit."
+        },
+        "first_message_matches_greeting": { "type": ["boolean", "null"], "description": "Hint, not proof. null when the card has no greeting." },
+        "user_confirmed_start": { "type": "boolean" },
+        "user_confirmed_end": { "type": "boolean" }
+      },
+      "if": { "properties": { "status": { "const": "complete" } } },
+      "then": { "properties": { "user_confirmed_start": { "const": true }, "user_confirmed_end": { "const": true } } },
+      "else": { "not": { "properties": { "user_confirmed_start": { "const": true }, "user_confirmed_end": { "const": true } } } }
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "source_message_id", "role", "text", "source_created_at"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "maximum": 4999, "description": "0, 1, 2, … in chat order. Order is defined by index, not by dates." },
+        "source_message_id": { "type": ["string", "null"], "maxLength": 128, "description": "The page shows no message ids: null." },
+        "role": { "enum": ["user", "assistant"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768, "description": "Text as the page displayed it, with line breaks; formatting marks are not preserved." },
+        "source_created_at": { "type": ["string", "null"], "format": "date-time", "description": "The page shows no message times: null." }
+      }
+    }
+  }
+}

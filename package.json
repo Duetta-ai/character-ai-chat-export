@@ -1,0 +1,15 @@
+{
+  "name": "duetta-cai-export",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome extension that saves your own character and your chat with it to a local JSON file.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "playwright": "1.63.0"
+  }
+}
