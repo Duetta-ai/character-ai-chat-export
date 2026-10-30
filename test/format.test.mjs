@@ -3,16 +3,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import Ajv from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
 import { buildExport, fileName, imageType, serialize, utf8Bytes, LIMITS } from "../extension/export.js";
-import { ROOT } from "./harness.mjs";
+import { ROOT, validate } from "./harness.mjs";
 import "../extension/reader.js";
 
 const { matchesGreeting } = globalThis.duettaReader;
-const ajv = new Ajv({ allErrors: true, strict: true });
-addFormats(ajv);
-export const validate = ajv.compile(JSON.parse(readFileSync(join(ROOT, "contracts/cai-export-v1.schema.json"), "utf8")));
 const golden = (name) => JSON.parse(readFileSync(join(ROOT, "fixtures/golden", name), "utf8"));
 const errors = (file) => (validate(file) ? [] : validate.errors.map((e) => `${e.instancePath} ${e.keyword}`));
 

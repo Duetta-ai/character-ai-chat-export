@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duetta Chat Export</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="reader.js"></script>
+    <script type="module" src="popup.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>Duetta Chat Export</h1>
+        <p>Compatible with Character.AI</p>
+      </div>
+    </header>
+
+    <main>
+      <section data-view="loading">
+        <p class="muted">Checking this page…</p>
+      </section>
+
+      <section data-view="unsupported" hidden>
+        <h2>Open your chat</h2>
+        <p>Open a chat with a character <strong>you created</strong> on character.ai, then click this extension again.</p>
+        <p class="note">The extension reads the page only after your click. Nothing is sent anywhere: the file is saved on this computer.</p>
+      </section>
+
+      <section data-view="chat" hidden>
+        <h2 data-f="name"></h2>
+        <p class="muted"><span data-f="loaded"></span> messages on the page now</p>
+        <div class="card-state" data-f="card-ok" hidden>✓ Character card added</div>
+        <div class="callout" data-f="card-missing" hidden>
+          Add the character card too: open <a data-f="edit-link" target="_blank">its Edit page</a> and click this extension there.
+          It can be done before or after saving the chat.
+        </div>
+        <button class="primary" data-a="save-chat">Save whole chat</button>
+        <p class="note">The extension scrolls up to the first message, and the site loads older messages as it goes. Usually a few seconds; keep this tab open.</p>
+      </section>
+
+      <section data-view="progress" hidden>
+        <h2>Loading the whole chat…</h2>
+        <p class="big"><span data-f="count">0</span> <span class="unit">messages loaded</span></p>
+        <div class="bar" role="progressbar" aria-label="Loading older messages"><i></i></div>
+        <p class="muted">Scrolling up to the first message · <span data-f="secs">0.0</span> s</p>
+        <button data-a="stop">Stop and save what's loaded</button>
+        <p class="note">Keep this tab open while loading.</p>
+      </section>
+
+      <section data-view="card" hidden>
+        <h2>Character card</h2>
+        <p>Reads what this form shows: name, tagline, description, greetings and definition. Nothing on the site is changed.</p>
+        <button class="primary" data-a="add-card">Add character card</button>
+        <p class="card-state" data-f="card-done" hidden>✓ Card added for <strong data-f="card-name"></strong>. Now open your chat with this character and click the extension.</p>
+      </section>
+
+      <section data-view="review" hidden>
+        <h2 data-f="r-name"></h2>
+        <p class="muted" data-f="r-tagline"></p>
+        <p class="status" data-f="r-status"></p>
+        <dl class="facts">
+          <dt>Messages</dt>
+          <dd data-f="r-count"></dd>
+          <dt>First</dt>
+          <dd><span class="who" data-f="r-first-who"></span><span class="quote" data-f="r-first"></span></dd>
+          <dt>Last</dt>
+          <dd><span class="who" data-f="r-last-who"></span><span class="quote" data-f="r-last"></span></dd>
+          <dt>Beginning</dt>
+          <dd data-f="r-greeting"></dd>
+          <dt>Loading</dt>
+          <dd data-f="r-stopped"></dd>
+        </dl>
+        <div class="callout" data-f="r-left-out" hidden></div>
+        <div class="callout" data-f="r-need-card" hidden>
+          Add the character card to finish: open <a data-f="r-edit-link" target="_blank">its Edit page</a> and click this extension there.
+        </div>
+        <fieldset class="checks">
+          <label><input type="checkbox" data-c="own" /> This is a character I created, and this is my chat.</label>
+          <label><input type="checkbox" data-c="start" /> The first message above is the start of the chat.</label>
+          <label><input type="checkbox" data-c="end" /> The last message above is the latest one.</label>
+        </fieldset>
+        <div class="photo">
+          <img data-f="r-photo" alt="Your picture" hidden />
+          <div>
+            <div class="label">Picture <span class="muted">(optional)</span></div>
+            <div class="muted" data-f="r-photo-text">Not included</div>
+            <a data-f="photo-link" href="popup.html?tab" target="_blank">Add my own picture…</a>
+            <input type="file" accept="image/png,image/jpeg,image/webp" data-f="photo-input" hidden />
+            <button class="link" data-a="photo-remove" hidden>Remove picture</button>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" data-a="save-file">Save file</button>
+          <button data-a="start-over">Start over</button>
+        </div>
+        <p class="note">The file is plain JSON, not encrypted. Keep it like any private document.</p>
+      </section>
+
+      <section data-view="saved" hidden>
+        <h2>Saved</h2>
+        <p>The browser is saving <strong data-f="s-file"></strong> to your downloads.</p>
+        <p class="note">The chat and the card are no longer kept by the extension.</p>
+      </section>
+
+      <section data-view="error" hidden>
+        <h2 data-f="e-title"></h2>
+        <p data-f="e-text"></p>
+        <div class="actions">
+          <button class="primary" data-a="retry">Try again</button>
+          <button data-a="start-over">Start over</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

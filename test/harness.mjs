@@ -4,6 +4,8 @@ import { readFileSync, cpSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
+import Ajv from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 
 export const ROOT = new URL("..", import.meta.url).pathname;
 export const CHAR_ID = "FictionalLighthouseKeeperTim_TestOnly000000";
@@ -11,6 +13,10 @@ export const CHAT_ID = "00000000-0000-4000-8000-000000000001";
 export const HANDLE = "lighthouse_fan";
 export const CHAT_URL = `https://character.ai/chat/${CHAR_ID}?hist=${CHAT_ID}`;
 export const EDIT_URL = `https://character.ai/character/${CHAR_ID}/edit`;
+
+const ajv = new Ajv({ allErrors: true, strict: true });
+addFormats(ajv);
+export const validate = ajv.compile(JSON.parse(readFileSync(join(ROOT, "contracts/cai-export-v1.schema.json"), "utf8")));
 
 export const dom = (name) => readFileSync(join(ROOT, "fixtures/dom", `${name}.html`), "utf8").replace(/^<!--.*?-->\n/s, "");
 
@@ -118,8 +124,11 @@ export async function loadExtension(context) {
     await page.waitForLoadState();
     return page;
   };
+  // An extension page kept open to look up tabs and read the extension's storage.
+  const helper = await openWindow(`chrome-extension://${id}/popup.html?tab`);
   return {
     id,
+    helper,
     // The user's click on the extension icon in this tab.
     async click(page) {
       const { targetInfos } = await browser.send("Target.getTargets", { filter: [{}] });
@@ -128,17 +137,15 @@ export async function loadExtension(context) {
     },
     // popup.html acting on that tab, sized like the toolbar popup.
     async popup(page) {
-      const helper = await openWindow(`chrome-extension://${id}/popup.html?tab`);
-      // Before the click the tab's URL is hidden from the extension: then it is the tab without one.
+      // Before the click the tab's URL is hidden from the extension: then it is the newest tab without one.
       const tabId = await helper.evaluate(async (url) => {
-        const tabs = await chrome.tabs.query({});
-        return (tabs.find((t) => t.url === url) ?? tabs.find((t) => !t.url))?.id;
+        const tabs = (await chrome.tabs.query({})).sort((a, b) => a.id - b.id);
+        return (tabs.filter((t) => t.url === url).at(-1) ?? tabs.filter((t) => !t.url).at(-1))?.id;
       }, page.url());
-      await helper.close();
       const popup = await openWindow(`chrome-extension://${id}/popup.html?target=${tabId}`);
       await popup.setViewportSize({ width: 360, height: 640 });
       return popup;
     },
-    storage: (area = "session") => browser.send("Extensions.getStorageItems", { id, storageArea: area }),
+    storage: () => helper.evaluate(() => chrome.storage.session.get(null)),
   };
 }
