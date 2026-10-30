@@ -5,7 +5,7 @@
   "description": "Chrome extension that saves your own character and your chat with it to a local JSON file.",
   "type": "module",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "ajv": "8.20.0",
