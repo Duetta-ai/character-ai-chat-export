@@ -89,4 +89,4 @@ Fixture pages are served at `https://character.ai/...` only inside the test brow
 
 ## License
 
-Not chosen yet.
+MIT — see [LICENSE](LICENSE).
