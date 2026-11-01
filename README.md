@@ -33,23 +33,23 @@ Sign in to character.ai as usual. The extension works only with characters you c
 
 1. **Add the character card.** Open your character's **Edit** page, click the **D** icon and press **Add character card**. The extension saves what the form shows: name, tagline, description, greetings and definition.
 
-   <img src="docs/img/export-card.png" width="360" alt="Popup on the Edit page: Character card, Add character card">
+   <img src="docs/img/export-card.png" width="362" alt="Popup on the Edit page: Character card, Add character card">
 
 2. **Save the chat.** Open your chat with this character, click the **D** icon and press **Save whole chat**.
 
-   <img src="docs/img/export-chat.png" width="360" alt="Popup on the chat page: the character's name, Character card added, Save whole chat">
+   <img src="docs/img/export-chat.png" width="362" alt="Popup on the chat page: the character's name, Character card added, Save whole chat">
 
-   The extension scrolls up to the first message while the site loads older ones. Keep the tab open: it usually takes a few seconds, longer for a long chat. You can press **Stop and save what's loaded** at any time.
+   Keep the tab open while it loads: usually a few seconds, longer for a long chat. You can press **Stop and save what's loaded** at any time.
 
-   <img src="docs/img/export-loading.png" width="360" alt="Popup while loading: 50 messages loaded, Stop and save what's loaded">
+   <img src="docs/img/export-loading.png" width="362" alt="Popup while loading: 50 messages loaded, Stop and save what's loaded">
 
 3. **Check and save.** The preview shows how many messages there are, the first and the last one, and whether the chat is complete. Tick **This is a character I created, and this is my chat**, check the other two boxes and press **Save file**. You can also add your own picture to the file (optional).
 
-   <img src="docs/img/export-review.png" width="360" alt="Preview: Complete chat, 11 messages, the first and the last message, three ticked boxes, Save file">
+   <img src="docs/img/export-review.png" width="362" alt="Preview: Complete chat, 11 messages, the first and the last message, three ticked boxes, Save file">
 
 4. **Done.** The file `<character name> chat <date>.json` is in your Downloads folder. The extension forgets the chat as soon as the file is saved.
 
-   <img src="docs/img/export-saved.png" width="360" alt="Popup: Saved, the browser is saving the file to your downloads">
+   <img src="docs/img/export-saved.png" width="362" alt="Popup: Saved, the browser is saving the file to your downloads">
 
 The card can be added before or after saving the chat; the popup reminds you if it is missing. If the popup says it can't read a message or can't tell who wrote it, the site has changed and the extension needs an update: please [open an issue](https://github.com/Duetta-ai/character-ai-chat-export/issues).
 
