@@ -46,6 +46,11 @@ const build = (over = {}) =>
     ...over,
   });
 
+test("the file names the extension version from the manifest", () => {
+  const { version } = JSON.parse(readFileSync(join(ROOT, "extension/manifest.json"), "utf8"));
+  assert.equal(build().file.producer.version, version);
+});
+
 test("golden files pass the schema", () => {
   const names = readdirSync(join(ROOT, "fixtures/golden")).filter((n) => n.endsWith(".json"));
   assert.ok(names.length >= 3);
