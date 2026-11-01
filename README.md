@@ -114,7 +114,7 @@ There is no build step: the `extension` folder is exactly what Chrome runs. Afte
 1. Raise the version: `npm version X.Y.Z --no-git-tag-version` (package.json and package-lock.json), then the same number in `extension/manifest.json` and `extension/export.js` (`PRODUCER`, written into every file); `npm test` checks that the manifest and the file agree. Then run `UPDATE_GOLDEN=1 npm test` and review the diff.
 2. `scripts/package.sh` packs `extension/` into `dist/duetta-chat-export.zip` with `manifest.json` at the root of the zip.
 3. `gh release create vX.Y.Z dist/duetta-chat-export.zip`. Keep the file name: the download link above always points to the latest release's `duetta-chat-export.zip`.
-4. The same zip goes to the Chrome Web Store; the listing texts, pictures and the submission checklist are in [`store/`](store/).
+4. The same zip goes to the Chrome Web Store; the listing texts and pictures are in [`store/`](store/).
 
 ### Limitations
 

@@ -1,6 +1,6 @@
 # Chrome Web Store listing: Duetta Chat Export
 
-Texts to paste into the Developer Dashboard. How to submit, in Russian: [CHECKLIST.md](CHECKLIST.md).
+Texts to paste into the Chrome Web Store Developer Dashboard.
 
 ## Store listing tab
 
