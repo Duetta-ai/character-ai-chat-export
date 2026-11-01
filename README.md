@@ -7,7 +7,9 @@ It is a Chrome extension: it reads only the tab you click it on and sends nothin
 
 You need Google Chrome on a computer. No account, no terminal.
 
-1. **Download** [duetta-chat-export.zip](https://github.com/Duetta-ai/character-ai-chat-export/releases/latest/download/duetta-chat-export.zip). It is the file attached to the [latest release](https://github.com/Duetta-ai/character-ai-chat-export/releases/latest).
+1. **Download** [duetta-chat-export.zip](https://github.com/Duetta-ai/character-ai-chat-export/releases/latest/download/duetta-chat-export.zip). It is the file attached to the [latest release](https://github.com/Duetta-ai/character-ai-chat-export/releases/latest):
+
+   <img src="docs/img/install-release.png" width="700" alt="The latest release on GitHub: duetta-chat-export.zip at the top of Assets">
 
 2. **Unzip it.** On a Mac, double-click the file. On Windows, right-click it and choose **Extract All**. You get a folder named `duetta-chat-export`. Leave it where it is: Chrome runs the extension from this folder.
 
