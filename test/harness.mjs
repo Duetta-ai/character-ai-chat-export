@@ -126,6 +126,8 @@ export async function loadExtension(context) {
   };
   // An extension page kept open to look up tabs and read the extension's storage.
   const helper = await openWindow(`chrome-extension://${id}/popup.html?tab`);
+  // The user agrees to the first-use notice here; its own test clears the agreement and runs it again.
+  await helper.click('[data-a="consent"]');
   return {
     id,
     helper,

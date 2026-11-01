@@ -14,11 +14,14 @@ Only after you click its icon, and only in the tab where you clicked it:
 - On your chat page: the messages shown and who wrote each one (you or the character), the character's id and, if the address has it, the chat id. To check that the character is yours, it also compares the creator's username in the chat header with the username of the account you are signed in with. The usernames are not saved.
 - A picture, only if you choose an image file yourself.
 
+The first time you click the icon, the extension shows this list and reads nothing until you press **Agree and continue**.
+
 ## What it does with it
 
 - Shows you a preview in the extension's window.
 - Keeps the character card and the chat in the browser's session storage (in memory) until you save the file, press **Start over** or close the browser.
-- When you press **Save file**, hands the file to the browser, which saves it to your Downloads folder. After that the extension keeps nothing.
+- When you press **Save file**, hands the file to the browser, which saves it to your Downloads folder. After that the extension keeps nothing of the chat or the card.
+- Remembers that you agreed to the first-use notice: one flag in the browser's local storage, with no other data.
 
 ## What it does not do
 
@@ -35,7 +38,7 @@ The saved file is plain, unencrypted JSON, and it is yours. Keep it like any pri
 
 ## Changes
 
-If a future version changes how the extension handles data, this policy will be updated before that version is published, and the date above will change.
+If a future version changes how the extension handles data, this policy will be updated before that version is published, the date above will change, and the extension will ask for your agreement again.
 
 ## Contact
 

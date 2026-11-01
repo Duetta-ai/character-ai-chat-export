@@ -270,3 +270,32 @@ test("without the user's click the extension cannot read the tab", async () => {
   await popup.close();
   await page.close();
 });
+
+// Last: it takes back the agreement the other tests rely on, then gives it again.
+test("first use: the popup says what it reads and reads nothing until the user agrees", async () => {
+  await ext.helper.evaluate(() => chrome.storage.local.clear());
+  const page = await site();
+  await page.goto(CHAT_URL);
+  const popup = await clickIcon(page);
+  await view(popup, "consent");
+  await shot(popup, "0-consent");
+  // A probe in the extension's world of the tab, where the page reader would be.
+  const reader = () =>
+    ext.helper.evaluate(async (url) => {
+      const tab = (await chrome.tabs.query({})).find((t) => t.url === url);
+      const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => typeof globalThis.duettaReader });
+      return result;
+    }, page.url());
+  assert.equal(await reader(), "undefined", "nothing runs in the page before the user agrees");
+  assert.deepEqual(await session(), {});
+  await popup.click('[data-a="consent"]');
+  await view(popup, "chat");
+  assert.equal(await reader(), "object");
+  const kept = await ext.helper.evaluate(() => chrome.storage.local.get(null));
+  assert.deepEqual(Object.keys(kept), ["consent"], "only the agreement is kept after the browser closes");
+  await popup.close();
+  const again = await clickIcon(page);
+  await view(again, "chat"); // asked once
+  await again.close();
+  await page.close();
+});

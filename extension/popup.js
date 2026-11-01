@@ -61,7 +61,22 @@ async function call(fn, arg = null) {
   return result;
 }
 
+// The notice in [data-view="consent"] is shown once, before the extension looks at any tab.
+// Raise CONSENT when what the extension reads changes, so that the user is asked again.
+const CONSENT = 1;
+
+function consentView() {
+  show("consent");
+  on("consent", async (e) => {
+    e.target.disabled = true;
+    await chrome.storage.local.set({ consent: CONSENT }); // the only thing kept after the browser closes
+    show("loading");
+    run();
+  });
+}
+
 async function main() {
+  if ((await chrome.storage.local.get("consent")).consent !== CONSENT) return consentView();
   const saved = await session.get(null);
   if (params.has("tab")) {
     // Opened in a tab from the review, so the file picker can't close it.
@@ -304,4 +319,5 @@ on("start-over", async () => {
   await session.clear();
   location.reload();
 });
-main().catch((e) => showError(e.message === "PAGE_CHANGED" ? "UNSUPPORTED_PAGE" : "INTERNAL", { message: e.message }));
+const run = () => main().catch((e) => showError(e.message === "PAGE_CHANGED" ? "UNSUPPORTED_PAGE" : "INTERNAL", { message: e.message }));
+run();

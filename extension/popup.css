@@ -52,6 +52,8 @@ a { color: var(--accent); }
 .bar i { display: block; height: 100%; width: 35%; border-radius: 3px; background: var(--accent); animation: slide 1.2s ease-in-out infinite; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 @media (prefers-reduced-motion: reduce) { .bar i { animation: none; width: 100%; opacity: 0.4; } }
+.reads { margin: 0 0 10px; padding-left: 18px; }
+.reads li { margin: 0 0 4px; }
 .callout { background: var(--warn-bg); color: var(--fg); border-radius: 8px; padding: 8px 10px; margin: 10px 0; font-size: 13px; }
 .card-state { color: var(--ok); margin: 8px 0; }
 .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin: 4px 0 8px; }

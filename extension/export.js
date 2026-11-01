@@ -8,7 +8,7 @@ export const LIMITS = {
   imageBytes: 2 * 1024 * 1024,
   imagePixels: 16_000_000,
 };
-const PRODUCER = { name: "duetta-cai-export", version: "1.0.0" };
+const PRODUCER = { name: "duetta-cai-export", version: "1.1.0" };
 
 export const utf8Bytes = (s) => new TextEncoder().encode(s).length;
 export const serialize = (file) => JSON.stringify(file, null, 2) + "\n";

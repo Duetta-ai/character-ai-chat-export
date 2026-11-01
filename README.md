@@ -33,6 +33,10 @@ You need Google Chrome on a computer. No account, no terminal.
 
 Sign in to character.ai as usual. The extension works only with characters you created.
 
+The first time you click the **D** icon, the extension shows what it reads and reads nothing until you press **Agree and continue**. You see this once.
+
+<img src="docs/img/export-consent.png" width="362" alt="First-use notice: what the extension reads, Agree and continue">
+
 1. **Add the character card.** Open your character's **Edit** page, click the **D** icon and press **Add character card**. The extension saves what the form shows: name, tagline, description, greetings and definition.
 
    <img src="docs/img/export-card.png" width="362" alt="Popup on the Edit page: Character card, Add character card">
@@ -66,7 +70,7 @@ The file uses Duetta's own format (v1), described by a JSON Schema in [`contract
 3. The extension then reads the messages on the page once and shows a preview: the character, the number of messages, the first and the last message, whether the chat starts with the character's greeting, and whether the chat is complete.
 4. You confirm that the character and the chat are yours, and whether the first and last messages are the real start and end. Optionally add your own picture from a file on your computer. **Save file** downloads the JSON.
 
-Only you start it, by clicking. It works on your own characters only: the chat header must say "By @you" with the handle of the account you are signed in with, and the page must have the character's Edit link.
+Only you start it, by clicking. The first time, the popup says what the extension reads and waits for **Agree and continue** before it looks at any tab. It works on your own characters only: the chat header must say "By @you" with the handle of the account you are signed in with, and the page must have the character's Edit link.
 
 ### What is saved
 
@@ -90,7 +94,7 @@ Only you start it, by clicking. It works on your own characters only: the chat h
 |---|---|
 | `activeTab` | Read the open tab only after you click the extension icon. |
 | `scripting` | Run the page reader in that tab. |
-| `storage` | Keep the card and the chat in memory between popup openings (`chrome.storage.session`). It is cleared when you save, when you press Start over and when the browser closes. |
+| `storage` | Keep the card and the chat in memory between popup openings (`chrome.storage.session`). It is cleared when you save, when you press Start over and when the browser closes. `chrome.storage.local` keeps one flag: that you agreed to the first-use notice. |
 
 There are no host permissions, no content scripts that run by themselves, no background worker, no analytics and no remote code. The extension makes **no network requests**: the popup's Content Security Policy has `connect-src 'none'`, and the reader only reads the page and scrolls it. Older messages are loaded by the site's own page, as when you scroll by hand. The file is downloaded from a local Blob, so the `downloads` permission is not needed.
 
@@ -107,7 +111,7 @@ There is no build step: the `extension` folder is exactly what Chrome runs. Afte
 
 ### Release
 
-1. Raise the version in `extension/manifest.json`, `extension/export.js` (`PRODUCER`, written into every file) and `package.json`; `npm test` checks that the manifest and the file agree. Then run `UPDATE_GOLDEN=1 npm test` and review the diff.
+1. Raise the version: `npm version X.Y.Z --no-git-tag-version` (package.json and package-lock.json), then the same number in `extension/manifest.json` and `extension/export.js` (`PRODUCER`, written into every file); `npm test` checks that the manifest and the file agree. Then run `UPDATE_GOLDEN=1 npm test` and review the diff.
 2. `scripts/package.sh` packs `extension/` into `dist/duetta-chat-export.zip` with `manifest.json` at the root of the zip.
 3. `gh release create vX.Y.Z dist/duetta-chat-export.zip`. Keep the file name: the download link above always points to the latest release's `duetta-chat-export.zip`.
 4. The same zip goes to the Chrome Web Store; the listing texts, pictures and the submission checklist are in [`store/`](store/).
